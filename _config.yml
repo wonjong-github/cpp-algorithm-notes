@@ -1,0 +1,21 @@
+title: C++ 알고리즘 노트
+description: C++ 코딩 테스트 템플릿과 Q&A 노트 (백준 · 프로그래머스)
+lang: ko
+theme: minima
+url: https://wonjong-github.github.io
+baseurl: /cpp-algorithm-notes
+
+permalink: /:categories/:title/
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+plugins:
+  - jekyll-feed
+
+exclude:
+  - cheatsheet.md
+  - scripts/
+  - README.md
