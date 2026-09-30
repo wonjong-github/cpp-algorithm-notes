@@ -1571,3 +1571,68 @@ do { /* ... */ } while (next_permutation(d.begin(), d.end()));   // 정렬 후 �
 - 위 예시는 이미 내림차순이라 정렬 없이 돌리면 **첫 순서 하나만 보고 끝남** (에러 없이 오답).
 - 원본 순서를 건드리기 싫으면 인덱스 배열 `{0, 1, 2, ...}`을 만들어 그걸 `next_permutation`으로 돌림 (인덱스는 처음부터 오름차순이라 정렬 불필요).
 - 같은 원소가 있으면 중복 순열은 건너뜀 (`{{1,1},{1,1},{2,2}}` → 3가지). 완전히 같은 원소라면 결과에 영향 없음.
+
+### Q19. 피로도를 DFS(백트래킹)로 푸는 방법
+
+**아이디어**: "다음에 어느 던전에 들어갈까?"를 한 단계로 보고, 들어갈 수 있는 던전을 하나씩 골라 **더 깊이 들어갔다가(재귀) 돌아와서(원상복구) 다른 던전을 고름**.
+
+```
+피로도 80에서 시작
+├─ A(80,20) 선택 → 60
+│   ├─ B(50,40) 선택 → 20
+│   │   └─ C(30,10): 20 < 30 → 못 들어감 → 2개로 끝
+│   └─ C(30,10) 선택 → 50
+│       └─ B(50,40) 선택 → 10 → 3개 ★
+├─ B(50,40) 선택 → 40
+│   └─ ...
+└─ C(30,10) 선택 → 70
+    └─ ...
+```
+
+```cpp
+int answer = 0;
+vector<bool> visited;
+
+// fatigue: 현재 피로도, count: 지금까지 탐험한 던전 수
+void dfs(int fatigue, int count, const vector<vector<int>> &dungeons) {
+    answer = max(answer, count);                 // 지금 멈추는 경우도 답 후보
+
+    for (int i = 0; i < (int)dungeons.size(); i++) {
+        int need = dungeons[i][0];
+        int cost = dungeons[i][1];
+        if (visited[i] || fatigue < need) continue;   // 이미 갔거나 못 들어가면 건너뜀
+
+        visited[i] = true;                        // 1) 선택
+        dfs(fatigue - cost, count + 1, dungeons); // 2) 다음 단계로
+        visited[i] = false;                       // 3) 원상복구
+    }
+}
+
+int solution(int k, vector<vector<int>> dungeons) {
+    answer = 0;                                   // 전역 변수는 매번 초기화!
+    visited.assign(dungeons.size(), false);
+    dfs(k, 0, dungeons);
+    return answer;
+}
+```
+
+**백트래킹 3단계 (치트시트 4장 백트래킹 템플릿과 같은 틀)**
+
+1. **선택**: `visited[i] = true`
+2. **다음 단계로**: `dfs(fatigue - cost, count + 1, ...)`. 바뀐 상태(피로도, 개수)는 **인자로 넘김** → 돌아오면 자동으로 원래 값
+3. **원상복구**: `visited[i] = false` → 다른 던전을 고르는 경우를 위해 되돌림
+
+- `answer = max(answer, count)`를 **함수 맨 앞**에서 함 → "여기서 멈추는 경우"도 모두 답 후보가 됨.
+- 전역 변수(`answer`, `visited`)는 `solution` 안에서 **매번 초기화**. 채점 시 `solution`이 여러 번 호출될 수 있음.
+
+**`next_permutation` 풀이와 비교**
+
+| | `next_permutation` | DFS (백트래킹) |
+|---|---|---|
+| 방식 | 모든 순서(8! = 40,320가지)를 만든 뒤 순서대로 시뮬레이션 | 들어갈 수 있는 던전만 골라 가며 탐색 |
+| 못 들어가는 던전 | 순열 안에서 건너뜀 | 그 가지는 **아예 탐색 안 함** (가지치기) |
+| 속도 | 항상 모든 순열을 돎 | 막히는 가지가 많을수록 빠름 |
+| 코드 | 짧고 실수할 곳이 적음 | 틀이 조금 길지만 다른 문제에 그대로 응용 가능 |
+| 주의 | 시작 전 **오름차순 정렬 필수** (Q18) | **원상복구 빠뜨리지 않기** |
+
+- 입력이 작으면(n ≤ 8~10) 둘 다 OK. 조건에 따라 가지를 많이 자를 수 있는 문제(N-Queen, 조합 합 등)는 DFS가 유리.
