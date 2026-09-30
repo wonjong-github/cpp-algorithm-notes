@@ -1866,3 +1866,89 @@ set<string, ByLen> bl = {"aa", "bb", "c", "ddd"};  // c aa ddd  ← "bb"가 사�
 | `multiset` | O | O |
 | `unordered_set` | **X** (순서 예측 불가) | X |
 | `map` | O (키 기준) | 키 중복 X |
+
+### Q23. DFS로 순열(카드 조합) 만들 때 흔한 실수 4가지 (소수 찾기)
+
+```cpp
+set<int> numset;
+
+void dfs(string numbers, vector<bool> &visited, int index, string nownum) {
+    for (int i = index; i < numbers.size(); i++) {      // ❌ 2
+        if (!visited[i]) {
+            nownum += numbers[i];                        // ❌ 3
+            numset.insert(stoi(nownum));
+            visited[i] = true;
+            dfs(numbers, visited, i + 1, nownum);
+            visited[i] = false;
+        }
+    }
+}
+int solution(string numbers) {
+    vector<bool> visited(numbers.size(), false);         // ❌ 1 (numset 초기화 없음)
+    dfs(numbers, visited, 0, "");
+    ...
+    for (int i = 2; i * i < num; i++)                    // ❌ 4
+```
+
+**❌ 1. 전역 컨테이너를 `solution`에서 초기화하지 않음**
+
+- `solution`이 여러 번 호출되면(로컬 테스트, 채점 서버) 이전 입력에서 만든 수가 **계속 쌓임**.
+- `"0"`을 넣었는데 이전 테스트의 소수가 남아 답이 2가 됨.
+- → `solution` 첫 줄에 `numset.clear();`. 전역 변수는 **항상 solution에서 초기화**.
+
+**❌ 2. `i = index`부터 시작 → 순열이 아니라 "앞에서 뒤로 고르는 조합"이 됨**
+
+- `dfs(..., i + 1, ...)`로 넘기면 **뒤쪽 카드만** 고를 수 있어서 `"17"`에서 71을 못 만듦.
+- 순서를 바꿔 쓰는 **순열**은 `visited`로 중복 사용만 막고 **항상 0부터** 돌아야 함.
+
+| 만들고 싶은 것 | 반복 시작 | 중복 방지 |
+|---|---|---|
+| 순열 (순서 다르면 다른 것: 17 ≠ 71) | `i = 0` | `visited` |
+| 조합 (순서 상관없음: {1,7} = {7,1}) | `i = start` + `dfs(i + 1)` | 시작 위치로 자동 방지 |
+
+**❌ 3. 반복문 안에서 `nownum`을 직접 수정 → 원상복구가 안 됨**
+
+- `i = 0`에서 `nownum = "1"`로 바뀐 채로 `i = 1`로 넘어가면 `"1" + "7" = "17"`이 되어, 한 자리 수 7을 못 만듦.
+- 2번만 고치면 문자열이 끝없이 길어져 **`stoi: out of range`로 프로그램이 멈춤** (21억 넘는 수).
+- → 바꾼 값을 **새 변수로 만들어 인자로 넘김**. 인자로 넘긴 값은 돌아오면 원래대로라 원상복구가 필요 없음.
+
+```cpp
+string next = nownum + numbers[i];     // nownum 자체는 그대로
+numset.insert(stoi(next));
+dfs(numbers, visited, next);
+```
+
+- `visited`처럼 **참조(&)로 공유하는 것만** `true` → 재귀 → `false`로 직접 원상복구.
+
+**❌ 4. 소수 판별 범위 `i * i < num` → 제곱수를 소수로 셈**
+
+- 4, 9, 25, 49는 약수가 딱 √n 하나뿐인데, `<`면 그 값을 검사하지 않아 소수로 판정.
+- → `i * i <= num`.
+
+**고친 DFS**
+
+```cpp
+set<int> numset;
+
+void dfs(const string &numbers, vector<bool> &visited, const string &nownum) {
+    for (int i = 0; i < (int)numbers.size(); i++) {
+        if (visited[i]) continue;
+        string next = nownum + numbers[i];
+        numset.insert(stoi(next));
+        visited[i] = true;
+        dfs(numbers, visited, next);
+        visited[i] = false;
+    }
+}
+
+int solution(string numbers) {
+    numset.clear();
+    vector<bool> visited(numbers.size(), false);
+    dfs(numbers, visited, "");
+    int count = 0;
+    for (int num : numset) if (isPrime(num)) count++;   // isPrime: i * i <= n
+    return count;
+}
+```
+
+- `numbers`는 바뀌지 않으므로 `const string &`로 넘겨 매 호출 복사를 피함.
