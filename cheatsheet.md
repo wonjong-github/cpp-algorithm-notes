@@ -1736,3 +1736,80 @@ do { /* order 순서대로 처리 */ } while (next_permutation(order.begin(), or
 | `unique(b, e)` | `<algorithm>` | X (새 끝 반환) | 정렬 후 `erase`와 함께 → 중복 제거 |
 | `remove(b, e, x)` | `<algorithm>` | X (새 끝 반환) | `erase`와 함께 → 값 삭제 |
 | `iota(b, e, start)` | `<numeric>` | - | start, start+1, … 로 채움 |
+
+### Q21. `set`에 있는 값을 조회하는 방법
+
+`set`은 **인덱스(`s[0]`)로 접근할 수 없음** (컴파일 에러). 순회 · 검색 · 범위 탐색으로 조회함.
+
+**전체 순회 (자동으로 오름차순)**
+
+```cpp
+set<int> s = {11, 7, 101, 2, 7};     // 중복 7은 하나만 → {2, 7, 11, 101}
+
+for (int x : s) cout << x << ' ';                                   // 2 7 11 101
+for (auto it = s.begin(); it != s.end(); ++it) cout << *it << ' ';  // 반복자 (값은 *it)
+for (auto it = s.rbegin(); it != s.rend(); ++it) cout << *it << ' ';// 역순: 101 11 7 2
+
+// 소수 찾기처럼 "모은 값을 하나씩 검사"
+int cnt = 0;
+for (int x : s) if (isPrime(x)) cnt++;
+```
+
+**값이 있는지 확인**
+
+```cpp
+s.count(7);                          // 있으면 1, 없으면 0
+if (s.count(7)) { }
+
+auto it = s.find(11);                // 있으면 그 위치, 없으면 s.end()
+if (it != s.end()) cout << *it;
+
+s.contains(7);                       // C++20 전용 (채점이 C++17이면 에러) → count 사용
+```
+
+**최솟값 / 최댓값 / 개수**
+
+```cpp
+*s.begin();       // 최솟값 2
+*s.rbegin();      // 최댓값 101
+s.size();         // 원소 개수 4
+s.empty();        // 비었는지 (비어 있으면 *s.begin()은 오류!)
+```
+
+**범위 탐색 (정렬돼 있어서 가능, O(log n))**
+
+```cpp
+*s.lower_bound(8);    // 8 이상인 첫 값 → 11
+*s.upper_bound(11);   // 11 초과인 첫 값 → 101
+if (s.lower_bound(200) == s.end()) { }   // 조건 맞는 값이 없으면 end() → 먼저 확인!
+```
+
+**k번째 값이 필요할 때**
+
+```cpp
+*next(s.begin(), 2);                  // 앞에서 3번째 → 11  (O(k), <iterator>)
+vector<int> v(s.begin(), s.end());    // 여러 번 인덱스 접근할 거면 vector로 복사
+v[2];                                 // 11
+```
+
+**삽입 결과 확인 / 순회하며 삭제**
+
+```cpp
+auto [pos, inserted] = s.insert(7);   // 이미 있으면 inserted == false (C++17)
+
+for (auto it = s.begin(); it != s.end(); ) {
+    if (*it % 2 == 0) it = s.erase(it);   // erase가 다음 위치를 돌려줌
+    else ++it;
+}
+```
+
+| 하고 싶은 것 | 방법 | 시간 |
+|---|---|---|
+| 전부 보기 | `for (int x : s)` | O(n) |
+| 있는지 확인 | `s.count(x)` / `s.find(x) != s.end()` | O(log n) |
+| 최소 / 최대 | `*s.begin()` / `*s.rbegin()` | O(1) |
+| x 이상인 첫 값 | `s.lower_bound(x)` | O(log n) |
+| k번째 값 | `*next(s.begin(), k)` 또는 vector로 복사 | O(k) |
+
+- `unordered_set`도 `count`, `find`, 순회는 같지만 **순서가 없어서** `begin()`이 최솟값이 아니고 `lower_bound`도 없음.
+- 같은 값을 여러 개 저장하려면 `multiset` (`count`가 개수를 돌려줌).
