@@ -1636,3 +1636,103 @@ int solution(int k, vector<vector<int>> dungeons) {
 | 주의 | 시작 전 **오름차순 정렬 필수** (Q18) | **원상복구 빠뜨리지 않기** |
 
 - 입력이 작으면(n ≤ 8~10) 둘 다 OK. 조건에 따라 가지를 많이 자를 수 있는 문제(N-Queen, 조합 합 등)는 DFS가 유리.
+
+### Q20. `erase`, `unique`, `iota` 정리 (+ `remove`)
+
+**`erase`: 원소 지우기 (컨테이너의 멤버 함수)**
+
+```cpp
+vector<int> v = {10, 20, 30, 40, 50};
+v.erase(v.begin() + 1);              // 인덱스 1 삭제       → 10 30 40 50
+v.erase(v.begin(), v.begin() + 2);   // [0, 2) 구간 삭제     → 40 50
+v.erase(v.end() - 1);                // 마지막 삭제 (= pop_back())
+
+string s = "hello world";
+s.erase(5);                          // 5번부터 끝까지 삭제 → "hello"
+s.erase(0, 6);                       // (시작, 개수)        → "world"
+s.erase(s.begin() + 1);              // 반복자 위치 한 글자  → "hllo"
+
+set<int> st;       st.erase(2);      // 값으로 삭제
+map<string, int> m; m.erase("a");    // 키로 삭제
+```
+
+- vector / string은 **위치(반복자)** 로 지움. 값으로 지우려면 아래 `remove`와 함께.
+- string의 `erase(pos, len)`은 **인덱스 + 개수** (반복자 아님) → 헷갈리기 쉬움.
+- vector 중간 삭제는 뒤 원소를 전부 당기므로 **O(n)**. 반복문 안에서 많이 지우면 느림.
+
+```cpp
+// 반복문 안에서 지울 때: erase가 돌려주는 "다음 위치"를 받아야 함
+for (auto it = v.begin(); it != v.end(); ) {
+    if (*it % 2 == 0) it = v.erase(it);   // 지우면 it를 새 위치로
+    else ++it;                            // 안 지울 때만 ++
+}
+```
+
+**`unique`: 연속된 중복 제거 (`<algorithm>`)**
+
+```cpp
+vector<int> u = {3, 1, 3, 2, 1, 3};
+sort(u.begin(), u.end());                  // 1 1 2 3 3 3   ← 정렬 먼저!
+auto newEnd = unique(u.begin(), u.end());  // 앞쪽을 1 2 3으로 만들고, 새 끝 위치를 반환
+                                           // u = 1 2 3 ? ? ?  (뒤쪽 값은 보장 안 됨, 크기는 그대로 6)
+u.erase(newEnd, u.end());                  // 뒤쪽 잘라내기   → 1 2 3
+
+// 보통 한 줄로 씀 (정렬 + 중복 제거)
+sort(v.begin(), v.end());
+v.erase(unique(v.begin(), v.end()), v.end());
+```
+
+- `unique`는 **실제로 지우지 않음**. 중복 아닌 값을 앞으로 모으고 "새 끝"만 알려줌 → 반드시 `erase`와 같이.
+- **붙어 있는 중복만** 없앰: 정렬 안 하면 `{5, 5, 1, 1, 5}` → `5 1 5`.
+- 문자열도 가능: `"aaabbbcca"` → `"abca"` (연속 글자 압축).
+- 순서가 필요 없으면 `set`에 넣는 것도 방법: `set<int>(v.begin(), v.end())`.
+
+**`remove` / `remove_if`: 값·조건으로 지우기 (erase-remove 관용구)**
+
+```cpp
+vector<int> r = {1, 2, 3, 2, 4};
+r.erase(remove(r.begin(), r.end(), 2), r.end());                        // 값 2 모두 삭제 → 1 3 4
+r.erase(remove_if(r.begin(), r.end(), [](int x) { return x % 2 == 0; }), r.end());   // 짝수 삭제
+
+string sp = "a b c";
+sp.erase(remove(sp.begin(), sp.end(), ' '), sp.end());                  // 공백 제거 → "abc"
+```
+
+- `unique`와 같은 원리: `remove`도 **남길 값을 앞으로 모으고 새 끝을 반환**할 뿐 → `erase`로 잘라냄.
+- C++20부터는 `erase(v, 2);`, `erase_if(v, 조건);` 한 줄로 가능 (채점 사이트가 C++17이면 사용 불가).
+
+**`iota`: 연속된 값으로 채우기 (`<numeric>`)**
+
+```cpp
+vector<int> a(5);
+iota(a.begin(), a.end(), 0);         // 0 1 2 3 4
+iota(a.begin(), a.end(), 1);         // 1 2 3 4 5
+int arr[4]; iota(arr, arr + 4, 10);  // 10 11 12 13
+string al(5, ' '); iota(al.begin(), al.end(), 'a');   // "abcde"
+```
+
+- 이름 뜻: 그리스 문자 ι (APL 언어에서 "0부터 n까지 수열"을 만드는 기호에서 유래). **i-o-t-a** 철자 주의 (itoa 아님).
+- 크기를 먼저 정해야 함: `vector<int> a(5);` 후 `iota` (빈 vector에 쓰면 아무것도 안 들어감).
+
+```cpp
+// 활용 1: 유니온 파인드 부모 배열 초기화 (자기 자신이 부모)
+vector<int> parent(n + 1);
+iota(parent.begin(), parent.end(), 0);
+
+// 활용 2: 원본은 두고 인덱스만 정렬 (등수 매기기)
+vector<int> idx(score.size());
+iota(idx.begin(), idx.end(), 0);
+sort(idx.begin(), idx.end(), [&](int x, int y) { return score[x] > score[y]; });
+
+// 활용 3: 순서 번호 배열로 순열 돌리기 (정렬 필요 없음)
+vector<int> order(n);
+iota(order.begin(), order.end(), 0);
+do { /* order 순서대로 처리 */ } while (next_permutation(order.begin(), order.end()));
+```
+
+| 함수 | 헤더 | 실제로 지우나? | 한 줄 요약 |
+|---|---|---|---|
+| `v.erase(it)` | 멤버 함수 | O | 위치로 삭제 |
+| `unique(b, e)` | `<algorithm>` | X (새 끝 반환) | 정렬 후 `erase`와 함께 → 중복 제거 |
+| `remove(b, e, x)` | `<algorithm>` | X (새 끝 반환) | `erase`와 함께 → 값 삭제 |
+| `iota(b, e, start)` | `<numeric>` | - | start, start+1, … 로 채움 |
