@@ -1952,3 +1952,80 @@ int solution(string numbers) {
 ```
 
 - `numbers`는 바뀌지 않으므로 `const string &`로 넘겨 매 호출 복사를 피함.
+
+### Q24. Python `itertools.product`를 C++로 구현하려면? (모음사전)
+
+C++ 표준에는 `product`가 없음 → **N진수 세기**나 **DFS**로 직접 만듦.
+
+**Python 원본**
+
+```python
+import itertools
+def solution(word):
+    words = []
+    for i in range(0, 5):
+        words.extend(''.join(p) for p in itertools.product("AEIOU", repeat=i+1))
+    words.sort()
+    return words.index(word) + 1
+```
+
+**C++: 5진수 세기로 product 만들기**
+
+```cpp
+// itertools.product("AEIOU", repeat=len)과 같은 역할:
+// 길이 len짜리 모든 조합을 만든다 (각 자리는 5진수 한 자리처럼 0~4)
+vector<string> product(const string &letters, int len) {
+    vector<string> result;
+    int base = letters.size();
+    int total = 1;
+    for (int i = 0; i < len; i++) total *= base;      // 5^len 개
+
+    for (int num = 0; num < total; num++) {
+        string s(len, ' ');
+        int x = num;
+        for (int pos = len - 1; pos >= 0; pos--) {     // num을 5진수로 바꿔 각 자리 글자 결정
+            s[pos] = letters[x % base];
+            x /= base;
+        }
+        result.push_back(s);
+    }
+    return result;
+}
+
+int solution(string word) {
+    vector<string> words;
+    for (int len = 1; len <= 5; len++) {
+        vector<string> part = product("AEIOU", len);
+        words.insert(words.end(), part.begin(), part.end());   // words.extend(...)
+    }
+    sort(words.begin(), words.end());                            // words.sort()
+    return find(words.begin(), words.end(), word) - words.begin() + 1;   // words.index(word) + 1
+}
+```
+
+- 아이디어: 길이 3이면 `000`, `001`, …, `444`(5진수)를 세고, 각 자리 숫자를 `AEIOU`의 글자로 바꿈.
+- `#include <algorithm>` 필요 (`sort`, `find`).
+
+**Python ↔ C++ 대응표**
+
+| Python | C++ |
+|---|---|
+| `itertools.product(s, repeat=n)` | 직접 구현 (N진수 세기 또는 DFS) |
+| `itertools.permutations(s)` | `sort` 후 `next_permutation` (Q18) |
+| `itertools.combinations(s, r)` | 0/1 마스크 + `next_permutation` (3장 "순열 / 조합") |
+| `words.extend(part)` | `words.insert(words.end(), part.begin(), part.end())` |
+| `words.sort()` | `sort(words.begin(), words.end())` |
+| `words.index(x)` | `find(words.begin(), words.end(), x) - words.begin()` (Q9) |
+| `''.join(p)` | `string`에 `+=`로 이어 붙이기 |
+| `x in words` | `find(...) != words.end()` 또는 `set`의 `count` |
+
+**DFS로 product 만들기 (자리 수가 가변이거나 조건을 넣을 때)**
+
+```cpp
+void dfs(const string &letters, const string &cur, int len, vector<string> &out) {
+    if ((int)cur.size() == len) { out.push_back(cur); return; }
+    for (char c : letters) dfs(letters, cur + c, len, out);   // visited 없음 = 중복 허용
+}
+```
+
+- 순열(Q23)과 차이: **`visited`가 없음** → 같은 글자를 여러 번 쓸 수 있음.
