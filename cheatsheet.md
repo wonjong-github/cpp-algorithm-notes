@@ -2029,3 +2029,88 @@ void dfs(const string &letters, const string &cur, int len, vector<string> &out)
 ```
 
 - 순열(Q23)과 차이: **`visited`가 없음** → 같은 글자를 여러 번 쓸 수 있음.
+
+### Q25. 타겟 넘버를 비트마스크 / `next_permutation`으로 푸는 방법
+
+숫자마다 +/- 두 가지 → 전체 2ⁿ가지를 **나열하는 방법만 다르고 결과는 같음**.
+
+**1) DFS (기본)**
+
+```cpp
+int cnt;
+void dfs(const vector<int> &numbers, int target, int index, int sum) {
+    if (index == (int)numbers.size()) {          // 모든 숫자를 다 쓴 뒤에만 비교
+        if (sum == target) cnt++;
+        return;
+    }
+    dfs(numbers, target, index + 1, sum + numbers[index]);
+    dfs(numbers, target, index + 1, sum - numbers[index]);
+}
+```
+
+**2) 비트마스크: 0 ~ 2ⁿ - 1을 세면서 각 비트를 +/-로 해석**
+
+```cpp
+// 비트마스크: mask의 i번째 비트가 1이면 numbers[i]를 더하고, 0이면 뺀다
+int solution(vector<int> numbers, int target) {
+    int n = numbers.size();
+    int count = 0;
+    for (int mask = 0; mask < (1 << n); mask++) {      // 000..0 ~ 111..1 (2^n가지)
+        int sum = 0;
+        for (int i = 0; i < n; i++) {
+            if (mask & (1 << i)) sum += numbers[i];      // i번째 비트가 1 → +
+            else sum -= numbers[i];                      // i번째 비트가 0 → -
+        }
+        if (sum == target) count++;
+    }
+    return count;
+}
+```
+
+```
+n = 3일 때
+mask = 0 (000) → - - -
+mask = 5 (101) → + - +    ← 0번, 2번 비트가 1
+mask = 7 (111) → + + +
+```
+
+| 비트 연산 | 의미 |
+|---|---|
+| `1 << n` | 2ⁿ (n ≤ 30까지 `int`, 그 이상은 `1LL << n`) |
+| `mask & (1 << i)` | i번째 비트가 1인지 확인 |
+| `mask \| (1 << i)` | i번째 비트를 1로 |
+| `mask & ~(1 << i)` | i번째 비트를 0으로 |
+| `__builtin_popcount(mask)` | 1인 비트 개수 (GCC/Clang) |
+
+- "각 원소마다 두 가지 선택" 문제(부분집합, 켜기/끄기)에 그대로 쓸 수 있음. 재귀 없이 반복문 두 개.
+
+**3) `next_permutation`: "- 를 붙일 숫자 k개"를 고르는 조합을 k = 0 ~ n까지**
+
+```cpp
+// next_permutation: "-를 붙일 숫자 k개"를 고르는 모든 조합을 k = 0 ~ n까지 돌린다
+int solution(vector<int> numbers, int target) {
+    int n = numbers.size();
+    int count = 0;
+    for (int k = 0; k <= n; k++) {
+        vector<int> sign(n, 0);                          // 0 = +, 1 = -
+        fill(sign.end() - k, sign.end(), 1);             // 0..0 1..1 (오름차순으로 시작)
+        do {
+            int sum = 0;
+            for (int i = 0; i < n; i++)
+                sum += sign[i] ? -numbers[i] : numbers[i];
+            if (sum == target) count++;
+        } while (next_permutation(sign.begin(), sign.end()));
+    }
+    return count;
+}
+```
+
+- `{0, 0, 1, 1}`처럼 0과 1이 섞인 배열을 `next_permutation`으로 돌리면 **"1의 위치"를 고르는 모든 조합**이 나옴 (3장 "순열 / 조합"과 같은 원리).
+- k마다 nCk가지 → 모두 더하면 2ⁿ가지. 비트마스크보다 길어서 이 문제에선 굳이 쓸 필요 없지만, **"정확히 k개를 고르는" 문제**에서 유용.
+- 시작 배열은 반드시 오름차순(0들 다음 1들) → `fill(sign.end() - k, sign.end(), 1)`.
+
+| 방법 | 장점 | 언제 |
+|---|---|---|
+| DFS | 중간에 가지치기 가능, 다른 문제로 응용 쉬움 | 기본 선택 |
+| 비트마스크 | 짧고 재귀 없음 | n ≤ 20 정도, 원소마다 2가지 선택 |
+| `next_permutation` (0/1 배열) | 고르는 개수 k를 정할 수 있음 | "정확히 k개 선택" |
