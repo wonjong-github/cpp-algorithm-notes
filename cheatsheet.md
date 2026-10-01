@@ -2114,3 +2114,98 @@ int solution(vector<int> numbers, int target) {
 | DFS | 중간에 가지치기 가능, 다른 문제로 응용 쉬움 | 기본 선택 |
 | 비트마스크 | 짧고 재귀 없음 | n ≤ 20 정도, 원소마다 2가지 선택 |
 | `next_permutation` (0/1 배열) | 고르는 개수 k를 정할 수 있음 | "정확히 k개 선택" |
+
+### Q26. BFS가 효율성 테스트에서 시간 초과 나는 이유와 고치는 법 (게임 맵 최단거리)
+
+**정답은 나오는데 느린 BFS**
+
+```cpp
+vector<vector<int>> distance(x, vector<int>(y, 1e9));   // ③ 1e9로 "안 간 칸" 표시
+distance[0][0] = 1;
+vector<vector<int>> visit_list;                          // ① vector를 큐처럼 사용
+visit_list.push_back({0, 0});                            // ② 좌표를 vector<int>로
+
+while (!visit_list.empty()) {
+    int nowx = visit_list.front()[0];
+    int nowy = visit_list.front()[1];
+    visit_list.erase(visit_list.begin());                // ① 맨 앞 삭제 = 뒤를 전부 당김
+    for (int i = 0; i < 4; i++) {
+        ...
+        if (범위 안 && maps[nx][ny] == 1 && distance[nx][ny] > x * y) {
+            visit_list.push_back({nx, ny});
+            distance[nx][ny] = min(distance[nx][ny], distance[nowx][nowy] + 1);   // ④ min 불필요
+        }
+    }
+}
+```
+
+**① `vector`의 맨 앞을 `erase` → 꺼낼 때마다 O(n)**
+
+- `erase(begin())`은 나머지 원소를 전부 한 칸씩 앞으로 옮김 → BFS 전체가 O(칸 수 × 큐 길이).
+- **맨 앞에서 꺼내고 맨 뒤에 넣는 구조 = `queue`** (꺼내기·넣기 모두 O(1)). 양쪽에서 넣고 빼야 하면 `deque`.
+
+**② 좌표를 `vector<int>`로 담음 → 원소마다 메모리 할당**
+
+- `{nx, ny}`를 넣을 때마다 작은 vector를 새로 만듦 (힙 할당). 좌표는 **`pair<int, int>`** 로.
+
+로컬 측정 (전부 길인 N×N 맵, `-O2`):
+
+| 맵 크기 | `vector<vector<int>>` + erase | `vector<pair>` + erase | `queue<pair>` |
+|---|---|---|---|
+| 100×100 | 1.8 ms | 0.4 ms | **0.2 ms** |
+| 300×300 | 25 ms | 7 ms | **0.7 ms** |
+| 1000×1000 | 402 ms | 62 ms | **6.6 ms** |
+
+- 전부 길인 맵은 큐가 짧게 유지되는 편이라 이 정도. 큐가 길어지는 맵에서는 차이가 더 커짐.
+
+**③ "안 간 칸"을 `1e9` + `> x * y`로 판단 → 0으로 단순하게**
+
+- 거리를 **0으로 초기화**하고 `dist[nr][nc] == 0`이면 안 간 칸 (시작 칸은 1이라 겹치지 않음).
+- 못 가면 도착 칸이 0으로 남음 → `-1` 반환.
+
+**④ BFS에서는 `min` 불필요**
+
+- BFS는 가까운 칸부터 처리 → **처음 도착한 순간이 최단 거리**. 비교 없이 `dist[r][c] + 1`을 바로 넣으면 됨.
+- (칸마다 이동 비용이 다르면 이 성질이 깨짐 → 다익스트라 등 비교·갱신 필요)
+
+**⑤ 그 밖에**
+
+- `min`을 쓰면 `#include <algorithm>`, `queue`는 `#include <queue>`.
+- 행 수·열 수를 `x`, `y`로 부르면 x = 가로처럼 읽혀 헷갈림 → `R`, `C` (또는 `rows`, `cols`).
+
+**고친 BFS**
+
+```cpp
+#include <queue>
+
+int solution(vector<vector<int>> maps) {
+    int R = maps.size(), C = maps[0].size();
+    int dr[] = {1, -1, 0, 0};
+    int dc[] = {0, 0, 1, -1};
+
+    vector<vector<int>> dist(R, vector<int>(C, 0));     // 0 = 아직 안 감
+    queue<pair<int, int>> q;
+    dist[0][0] = 1;                                     // 시작 칸도 1칸
+    q.push({0, 0});
+
+    while (!q.empty()) {
+        auto [r, c] = q.front();
+        q.pop();
+        for (int d = 0; d < 4; d++) {
+            int nr = r + dr[d], nc = c + dc[d];
+            if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;   // 범위 밖
+            if (maps[nr][nc] == 0 || dist[nr][nc] != 0) continue;   // 벽 또는 이미 방문
+            dist[nr][nc] = dist[r][c] + 1;                          // 넣을 때 바로 기록
+            q.push({nr, nc});
+        }
+    }
+    return dist[R - 1][C - 1] ? dist[R - 1][C - 1] : -1;
+}
+```
+
+| 체크리스트 | |
+|---|---|
+| 큐는 `queue`를 쓰나? (`vector` + `erase(begin())` 금지) | |
+| 좌표는 `pair<int, int>`인가? | |
+| 방문 표시는 **큐에 넣을 때** 하나? (꺼낼 때 하면 같은 칸이 여러 번 들어감) | |
+| `dist`/`visited`를 `solution` 안에서 새로 만드나? | |
