@@ -2209,3 +2209,112 @@ int solution(vector<vector<int>> maps) {
 | 좌표는 `pair<int, int>`인가? | |
 | 방문 표시는 **큐에 넣을 때** 하나? (꺼낼 때 하면 같은 칸이 여러 번 들어감) | |
 | `dist`/`visited`를 `solution` 안에서 새로 만드나? | |
+
+### Q27. `pair` 사용법 총정리
+
+> `#include <utility>` (`<vector>`, `<map>` 등을 include하면 보통 같이 들어오지만 직접 쓰는 게 안전)
+
+**만들기**
+
+```cpp
+pair<int, int> a = {1, 2};            // 중괄호 (가장 많이 씀)
+pair<string, int> b("kim", 90);       // 생성자
+auto c = make_pair(3, 'x');           // 타입 자동 추론 → pair<int, char>
+pair<int, int> zero;                  // 기본값 {0, 0}
+
+using pii = pair<int, int>;           // 자주 쓰면 별칭 (치트시트 1장 템플릿)
+pii d{5, 6};
+```
+
+**값 꺼내기 / 바꾸기**
+
+```cpp
+a.first;   a.second;                  // 괄호 없음! (함수가 아니라 멤버 변수)
+a.first = 10;
+a.second += 5;
+
+auto [x, y] = a;                      // 구조화 바인딩 (C++17): 복사본
+auto &[rx, ry] = a;                   // 참조: rx를 바꾸면 a.first도 바뀜
+rx = 99;
+
+int p, q;
+tie(p, q) = a;                        // 이미 있는 변수에 풀어 넣기 (<tuple>)
+```
+
+**비교와 정렬: first 먼저, 같으면 second**
+
+```cpp
+pii{1, 5} < pii{2, 0};                // true  (first가 작음)
+pii{1, 5} < pii{1, 9};                // true  (first 같음 → second 비교)
+pii{1, 5} == pii{1, 5};               // true
+
+vector<pii> v = {{2, 1}, {1, 9}, {1, 3}};
+sort(v.begin(), v.end());             // (1,3) (1,9) (2,1)
+sort(v.begin(), v.end(), greater<>());// (2,1) (1,9) (1,3)
+sort(v.begin(), v.end(), [](const pii &l, const pii &r) { return l.second < r.second; });   // second 기준
+```
+
+- 비교 연산이 이미 정의돼 있어서 `sort`, `set`, `map`의 키, `priority_queue`에 **그대로** 넣을 수 있음.
+
+**컨테이너 안의 pair**
+
+```cpp
+vector<pii> v;
+v.push_back({7, 7});
+v.emplace_back(8, 8);                 // 중괄호 없이 바로 생성
+
+queue<pii> q;                         // BFS 좌표 (Q26)
+q.push({0, 0});
+auto [r, c] = q.front();
+
+priority_queue<pii, vector<pii>, greater<pii>> pq;   // (거리, 노드) 최소 힙 (다익스트라)
+pq.push({5, 1});
+pq.top().first;                       // 가장 작은 first
+
+set<pii> visited;                     // 좌표 방문 기록
+visited.insert({1, 2});
+visited.count({1, 2});
+
+map<pii, int> cost;                   // 좌표를 키로
+cost[{1, 2}] = 7;
+// unordered_map<pii, int>는 해시 함수가 없어서 컴파일 에러 → map 사용 (Q8)
+```
+
+**map의 원소도 pair**
+
+```cpp
+map<string, int> m = {{"a", 1}, {"b", 2}};
+for (const auto &kv : m) cout << kv.first << kv.second;   // kv는 pair<const string, int>
+for (auto &[key, val] : m) cout << key << val;            // 구조화 바인딩이 더 읽기 쉬움
+
+auto [it, inserted] = m.insert({"a", 5});   // 반환값도 pair: (위치, 새로 넣었는지)
+// inserted == false (이미 있음), it->second == 1 (기존 값 유지)
+```
+
+**함수에서 값 두 개 돌려주기**
+
+```cpp
+pair<int, int> minMax(const vector<int> &v) {
+    return {*min_element(v.begin(), v.end()), *max_element(v.begin(), v.end())};
+}
+auto [lo, hi] = minMax({4, 1, 9});    // lo = 1, hi = 9
+```
+
+**세 개 이상이면**
+
+```cpp
+pair<int, pair<int, int>> nested = {1, {2, 3}};
+nested.second.first;                  // 2  ← 읽기 어려움
+
+tuple<int, int, int> t = {1, 2, 3};   // <tuple>
+auto [t1, t2, t3] = t;                // 구조화 바인딩
+get<2>(t);                            // 3 (인덱스로 꺼내기)
+// 의미가 중요하면 struct가 가장 읽기 쉬움 (struct Point { int r, c; };)
+```
+
+| 상황 | 추천 |
+|---|---|
+| 좌표 (행, 열) | `pair<int, int>` + `auto [r, c]` |
+| (거리, 노드) 우선순위 큐 | `pair<int, int>` + `greater<>` |
+| 값 3개 | `tuple` 또는 `struct` |
+| 멤버 이름이 중요할 때 | `struct` (`.first`보다 `.age`가 명확) |
