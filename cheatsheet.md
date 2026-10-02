@@ -2318,3 +2318,49 @@ get<2>(t);                            // 3 (인덱스로 꺼내기)
 | (거리, 노드) 우선순위 큐 | `pair<int, int>` + `greater<>` |
 | 값 3개 | `tuple` 또는 `struct` |
 | 멤버 이름이 중요할 때 | `struct` (`.first`보다 `.age`가 명확) |
+
+### Q28. `push`와 `emplace`의 차이 (`queue`, `vector` 등)
+
+**한 줄 요약**: `push`는 **완성된 객체**를 받아 넣고, `emplace`는 **생성자 재료**를 받아 컨테이너 안에서 **바로 만듦**.
+
+```cpp
+queue<pair<int, int>> q;
+q.push({1, 2});              // pair를 만든 뒤 넣음
+q.push(make_pair(3, 4));     // 위와 같음
+q.emplace(5, 6);             // pair(5, 6)을 큐 안에서 바로 생성 (중괄호 없음)
+// q.emplace({7, 8});        // 컴파일 에러! emplace는 중괄호 묶음을 못 받음
+```
+
+**실제 동작 차이 (생성/복사/이동 횟수를 출력해 본 결과)**
+
+```
+push(Noisy(1))  →  생성(1), 이동     // 바깥에서 만든 뒤 큐 안으로 옮김
+push(2)         →  생성(2), 이동     // 임시 객체를 만든 뒤 옮김
+emplace(3)      →  생성(3)           // 큐 안에서 한 번에 생성
+```
+
+- 차이는 **임시 객체 하나를 만들고 옮기는 비용**뿐.
+- `pair<int, int>`, `int` 같은 작은 값은 옮기는 비용이 거의 0 → **코테에서는 성능 차이 없음**. 편한 쪽을 쓰면 됨.
+- 크고 복사 비용이 큰 객체를 아주 많이 넣을 때만 의미 있는 차이.
+
+**컨테이너별 이름**
+
+| 컨테이너 | 넣기 | 바로 생성 |
+|---|---|---|
+| `queue`, `stack`, `priority_queue` | `push` | `emplace` |
+| `vector`, `deque` | `push_back` / `push_front` | `emplace_back` / `emplace_front` |
+| `set`, `map` | `insert` | `emplace` |
+
+**함정: `emplace`는 생성자를 호출하므로 의미가 달라질 수 있음**
+
+```cpp
+vector<vector<int>> v;
+v.push_back({3});        // 원소 하나짜리 vector → {3}
+v.emplace_back(3);       // vector<int>(3) 생성자 → 크기 3짜리 {0, 0, 0} !
+
+queue<string> sq;
+sq.emplace(3, 'z');      // string(3, 'z') → "zzz"
+```
+
+- `emplace(인자들)` = `T(인자들)` 생성자 호출. 원소 타입의 생성자를 떠올려서 의도와 같은지 확인할 것.
+- 헷갈리면 **`push({...})`가 가장 안전** (보이는 그대로 들어감).
