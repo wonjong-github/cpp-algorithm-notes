@@ -2469,3 +2469,88 @@ vector<int> solution(vector<string> maps) {
 | 큰 맵 | 스택 오버플로 위험 | 안전 | 안전 |
 | 최단 거리 | X | X | **O** |
 | 쓰는 곳 | flood fill, 백트래킹 | flood fill (큰 맵) | 최단 거리, flood fill |
+
+### Q30. 숫자 앞에 0을 채워 자릿수 맞추기 (`"mm:ss"` 만들기)
+
+`to_string`에는 자릿수 옵션이 없음 → 아래 방법 중 하나.
+
+**직접 if로 붙이는 방식 (동작은 하지만 길다)**
+
+```cpp
+string seconds_to_time(int seconds) {
+    string result = "";
+    int min = seconds / 60, sec = seconds % 60;
+    if (min < 10) result = "0" + to_string(min);
+    else result = to_string(min);
+    result += ":";
+    if (sec < 10) result += "0" + to_string(sec);
+    else result += to_string(sec);
+    return result;
+}
+```
+
+**1) `snprintf`: 가장 짧음 (추천)**
+
+```cpp
+#include <cstdio>
+
+string seconds_to_time(int seconds) {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%02d:%02d", seconds / 60, seconds % 60);
+    return buf;                        // char 배열 → string 자동 변환
+}
+```
+
+- `%02d` = 정수를 **최소 2자리, 빈자리는 0**으로. `%03d`면 3자리 (`7` → `"007"`).
+- 버퍼 크기는 넉넉하게 (`"100:00"`처럼 자릿수가 넘칠 수도 있음).
+
+**2) `ostringstream` + `setw` + `setfill`: C++ 스트림 방식**
+
+```cpp
+#include <sstream>
+#include <iomanip>
+
+string seconds_to_time(int seconds) {
+    ostringstream out;
+    out << setw(2) << setfill('0') << seconds / 60 << ':'
+        << setw(2) << setfill('0') << seconds % 60;
+    return out.str();
+}
+```
+
+- `setw(2)`는 **바로 다음 출력 하나에만** 적용 → 숫자마다 다시 써야 함.
+- `setfill('0')`은 한 번 정하면 **계속 유지**됨 (`cout`에 쓰면 이후 출력에도 영향).
+- `cout`으로 바로 출력할 때도 같은 방법: `cout << setw(2) << setfill('0') << m;`
+
+**3) 자릿수 맞추는 함수를 직접 만들기 (재사용)**
+
+```cpp
+string pad(int x, int width) {
+    string s = to_string(x);
+    if ((int)s.size() < width) s = string(width - s.size(), '0') + s;   // 부족한 만큼 '0'
+    return s;
+}
+// pad(5, 2) → "05",  pad(7, 3) → "007",  pad(1234, 2) → "1234" (넘치면 그대로)
+
+string seconds_to_time(int seconds) { return pad(seconds / 60, 2) + ":" + pad(seconds % 60, 2); }
+```
+
+- `string(n, '0')`: `'0'`을 n개 이어 붙인 문자열.
+
+**4) `std::format` (C++20 전용)**
+
+```cpp
+#include <format>
+string s = format("{:02}:{:02}", m, sec);   // C++17에서는 컴파일 에러
+```
+
+- 채점 환경이 C++17이면 사용 불가 → 1~3번 중 선택.
+
+| 방법 | 장점 | 헤더 |
+|---|---|---|
+| `snprintf("%02d")` | 한 줄, 여러 값 한 번에 | `<cstdio>` |
+| `setw` + `setfill` | `cout` 출력에도 그대로 사용 | `<iomanip>`, `<sstream>` |
+| `pad` 함수 | 원리가 보이고 어디서든 재사용 | 없음 |
+| `format` | 가장 깔끔 | `<format>` (C++20) |
+
+- **반대 방향(`"mm:ss"` → 초)**: `stoi(t.substr(0, 2)) * 60 + stoi(t.substr(3, 2))`. 시·분·초가 섞이면 `':'` 위치를 `find`로 찾아 자르기.
