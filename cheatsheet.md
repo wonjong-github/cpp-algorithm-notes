@@ -2364,3 +2364,108 @@ sq.emplace(3, 'z');      // string(3, 'z') → "zzz"
 
 - `emplace(인자들)` = `T(인자들)` 생성자 호출. 원소 타입의 생성자를 떠올려서 의도와 같은지 확인할 것.
 - 헷갈리면 **`push({...})`가 가장 안전** (보이는 그대로 들어감).
+
+### Q29. flood fill(무인도 여행)을 DFS로 푸는 방법: 재귀 vs stack
+
+"연결된 칸을 모두 방문"만 하면 되므로 **BFS / DFS 어느 쪽이든 정답** (최단 거리가 아니라서 순서가 상관없음).
+
+**1) 재귀 DFS: 가장 짧음**
+
+```cpp
+int R, C;
+int dr[] = {0, 0, 1, -1};
+int dc[] = {1, -1, 0, 0};
+vector<vector<bool>> visited;
+
+// (r, c)에서 시작해 연결된 육지를 모두 방문하고, 그 식량 합을 돌려준다
+int dfs(const vector<string> &maps, int r, int c) {
+    visited[r][c] = true;
+    int sum = maps[r][c] - '0';
+    for (int d = 0; d < 4; d++) {
+        int nr = r + dr[d], nc = c + dc[d];
+        if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;      // 범위 밖
+        if (maps[nr][nc] == 'X' || visited[nr][nc]) continue;      // 바다 또는 방문함
+        sum += dfs(maps, nr, nc);                                   // 이웃 섬 조각의 합을 더함
+    }
+    return sum;
+}
+
+vector<int> solution(vector<string> maps) {
+    R = maps.size();
+    C = maps[0].size();
+    visited.assign(R, vector<bool>(C, false));                       // 전역은 매번 초기화
+
+    vector<int> answer;
+    for (int r = 0; r < R; r++)
+        for (int c = 0; c < C; c++)
+            if (maps[r][c] != 'X' && !visited[r][c])
+                answer.push_back(dfs(maps, r, c));                  // 새 섬 발견
+
+    sort(answer.begin(), answer.end());
+    if (answer.empty()) answer = {-1};
+    return answer;
+}
+```
+
+- `dfs`가 **섬 조각의 합을 반환**하도록 만들면 `sum += dfs(...)` 한 줄로 합이 모임.
+- 방문 표시는 **함수에 들어오자마자**. 재귀 호출 전에 확인(`visited[nr][nc]`)하므로 같은 칸을 두 번 부르지 않음.
+- 백트래킹(Q19, Q23)과 달리 **원상복구(`visited = false`) 없음**: 한 번 칠한 칸은 다시 볼 필요가 없음.
+
+**2) stack DFS: BFS 코드에서 두 군데만 바꿈**
+
+```cpp
+// 재귀 대신 stack으로 하는 DFS: BFS 코드에서 queue → stack, front() → top()만 바꾼 것
+vector<int> solution(vector<string> maps) {
+    int R = maps.size(), C = maps[0].size();
+    int dr[] = {0, 0, 1, -1};
+    int dc[] = {1, -1, 0, 0};
+    vector<vector<bool>> visited(R, vector<bool>(C, false));
+
+    vector<int> answer;
+    for (int i = 0; i < R; i++) {
+        for (int j = 0; j < C; j++) {
+            if (maps[i][j] == 'X' || visited[i][j]) continue;
+
+            stack<pair<int, int>> st;
+            st.push({i, j});
+            visited[i][j] = true;
+            int sum = 0;
+            while (!st.empty()) {
+                auto [r, c] = st.top();
+                st.pop();
+                sum += maps[r][c] - '0';
+                for (int d = 0; d < 4; d++) {
+                    int nr = r + dr[d], nc = c + dc[d];
+                    if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;
+                    if (maps[nr][nc] == 'X' || visited[nr][nc]) continue;
+                    visited[nr][nc] = true;
+                    st.push({nr, nc});
+                }
+            }
+            answer.push_back(sum);
+        }
+    }
+    sort(answer.begin(), answer.end());
+    if (answer.empty()) answer = {-1};
+    return answer;
+}
+```
+
+- `queue` → `stack`, `q.front()` → `st.top()`. 나머지는 BFS와 동일 (`#include <stack>`).
+
+**재귀 깊이 주의 (로컬 측정, 기본 스택 8MB)**
+
+| 맵 | 재귀 깊이 | 재귀 DFS | stack DFS / BFS |
+|---|---|---|---|
+| 100×100 섬 하나 | 최대 1만 | 통과 (스택 1MB로 줄여도 통과) | 통과 |
+| 1000×1000 섬 하나 | 최대 100만 | **비정상 종료** (스택 오버플로, exit 139) | 통과 |
+
+- 칸 수가 수만 개 이하면 재귀도 괜찮음. **수십만 칸 이상이면 stack DFS나 BFS**.
+- 채점 환경의 스택 크기는 알 수 없음 → 확신이 없으면 BFS(Q26)가 가장 안전.
+
+| | 재귀 DFS | stack DFS | BFS |
+|---|---|---|---|
+| 코드 길이 | 가장 짧음 | BFS와 같음 | 기준 |
+| 큰 맵 | 스택 오버플로 위험 | 안전 | 안전 |
+| 최단 거리 | X | X | **O** |
+| 쓰는 곳 | flood fill, 백트래킹 | flood fill (큰 맵) | 최단 거리, flood fill |
