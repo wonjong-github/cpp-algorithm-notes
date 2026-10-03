@@ -693,18 +693,131 @@ bool unite(int a, int b) {
 // 주의: using namespace std; 와 함께 쓰면 std::find와 이름이 겹칠 수 있음 → findRoot 등으로 이름 변경 권장
 ```
 
-### 매개변수 탐색 (답을 이분 탐색)
+### 이분 탐색 총정리
+
+> 범위를 **절반씩** 줄여 가며 찾기. 크기 N이면 약 log₂N번 → 10억 범위도 **30번**, 10¹⁵ 범위도 **50번**.
+
+#### 언제 쓰나 (신호)
+
+| 신호 | 예 |
+|---|---|
+| **정렬된** 배열에서 값 / 위치 / 개수 찾기 | "x 이상인 첫 위치", "x의 개수" |
+| 답의 범위가 엄청 큼 (10⁹, 10¹⁵) + **답을 정하면 가능한지 판정은 쉬움** | 입국심사, 퍼즐 게임 챌린지 |
+| "~하는 **최솟값**" / "~하는 **최댓값**" / "최소의 최대" | 랜선 자르기, 징검다리 건너기 |
+| 답이 커질수록 조건이 **한 방향으로만** 바뀜 (단조성) | 숙련도↑ → 시간↓ |
+
+#### 1. STL로 하기 (정렬된 배열, `<algorithm>`)
 
 ```cpp
-// "조건을 만족하는 최솟값" 찾기. check(mid)가 단조(F F F T T T)일 때
-ll lo = 0, hi = 2e9;          // 답이 반드시 [lo, hi] 안에 있도록
+vector<int> v = {1, 3, 3, 3, 5, 8};                 // 반드시 정렬된 상태
+
+binary_search(v.begin(), v.end(), 3);               // 있나? → true
+lower_bound(v.begin(), v.end(), 3) - v.begin();     // 3 이상인 첫 위치 → 1
+upper_bound(v.begin(), v.end(), 3) - v.begin();     // 3 초과인 첫 위치 → 4
+upper_bound(...) - lower_bound(...);                // 3의 개수 → 3
+lower_bound(v.begin(), v.end(), 4) - v.begin();     // 없는 값 → 들어갈 자리 4
+lower_bound(v.begin(), v.end(), 9) == v.end();      // 전부 작으면 end() → 먼저 확인!
+
+auto [b, e] = equal_range(v.begin(), v.end(), 3);   // [lower, upper) 한 번에 → e - b = 3
+
+vector<int> d = {8, 5, 3, 3, 1};                    // 내림차순 배열은 비교 함수도 같이
+lower_bound(d.begin(), d.end(), 3, greater<int>()) - d.begin();   // 2
+
+set<int> s = {1, 3, 5, 8};
+*s.lower_bound(4);                                  // 5  (set/map은 멤버 함수로! O(log n))
+```
+
+- `set`에 `std::lower_bound(s.begin(), s.end(), x)`를 쓰면 **O(n)** → 반드시 `s.lower_bound(x)`.
+
+#### 2. 직접 구현: 정렬된 배열에서 값 찾기
+
+```cpp
+int findIndex(const vector<int> &v, int x) {
+    int lo = 0, hi = (int)v.size() - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (v[mid] == x) return mid;
+        if (v[mid] < x) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    return -1;                                       // 없음
+}
+```
+
+#### 3. 매개변수 탐색: "답"을 이분 탐색
+
+**순서**: ① 답의 범위 `[lo, hi]` 정하기 → ② `check(답)` 판정 함수 만들기 → ③ 최솟값/최댓값 중 무엇을 찾는지 정하기 → ④ 아래 틀에 넣기
+
+```cpp
+// (A) 조건을 만족하는 "최솟값": check가  F F F T T T  → 첫 T
+long long lo = 1, hi = 1e18;
 while (lo < hi) {
-    ll mid = (lo + hi) / 2;
-    if (check(mid)) hi = mid;
+    long long mid = lo + (hi - lo) / 2;      // 내림
+    if (check(mid)) hi = mid;                // mid도 답 후보 → 남김
     else lo = mid + 1;
 }
 // lo가 답
+
+// (B) 조건을 만족하는 "최댓값": check가  T T T F F F  → 마지막 T
+long long lo = 1, hi = maxLen;
+while (lo < hi) {
+    long long mid = lo + (hi - lo + 1) / 2;  // ★ 올림! (내림이면 lo = mid에서 무한 루프)
+    if (check(mid)) lo = mid;                // mid도 답 후보 → 남김
+    else hi = mid - 1;
+}
+// lo가 답
 ```
+
+```cpp
+// 예 (A): 입국심사 — 시간 T 안에 n명 이상 심사할 수 있나?   times = {7, 10}, n = 6 → 28
+bool check(long long T) {
+    long long cnt = 0;
+    for (int t : times) cnt += T / t;
+    return cnt >= n;
+}
+
+// 예 (B): 랜선 자르기 — 길이 L로 잘랐을 때 K개 이상 나오나?   {802, 743, 457, 539}, K = 11 → 200
+bool check(long long L) {
+    long long cnt = 0;
+    for (long long c : cables) cnt += c / L;
+    return cnt >= K;
+}
+```
+
+- 반복문 형태(`lo <= hi` / `lo < hi` / 답 따로 기록)는 Q32 참고. **한 가지로 정해서 계속 같은 형태로**.
+
+#### 4. 함정 체크리스트
+
+| 함정 | 대처 |
+|---|---|
+| `(lo + hi) / 2`가 넘침 (둘 다 10¹⁸ 근처) | `lo + (hi - lo) / 2` |
+| `check` 안의 합계가 `int`를 넘음 | `long long cnt` / `long long total` |
+| 최댓값 찾기에서 `lo = mid`인데 `mid` 내림 → 무한 루프 | `mid = lo + (hi - lo + 1) / 2` (올림) |
+| 범위 `[lo, hi]`에 답이 없음 | `hi`는 "확실히 되는 값"으로 (예: 최대 난이도, 가장 느린 심사관 × n) |
+| 마지막 `mid`를 답으로 반환 | 끝난 뒤의 `lo` (또는 따로 기록한 answer) |
+| `check`가 단조가 아님 | 이분 탐색 불가 → 다른 방법 |
+| 정렬 안 된 배열에 `lower_bound` | 결과가 의미 없음 → 먼저 `sort` |
+
+#### 5. 실수(소수) 범위
+
+```cpp
+double lo = 0, hi = 2;
+for (int it = 0; it < 100; it++) {          // 조건 대신 횟수로 반복 (100번이면 충분히 정밀)
+    double mid = (lo + hi) / 2;
+    if (mid * mid < 2) lo = mid;
+    else hi = mid;
+}
+// lo ≈ 1.414214 (√2)
+```
+
+#### 대표 문제
+
+| 문제 | 유형 |
+|---|---|
+| [PCCP 기출] 퍼즐 게임 챌린지 (Lv2) | 최솟값 (A), `long long` |
+| 입국심사 (Lv3) | 최솟값 (A), 범위 10¹⁸ |
+| 징검다리 건너기 (2019 카카오 인턴, Lv3) | 최댓값 (B) |
+| 백준 1654 랜선 자르기 / 2805 나무 자르기 / 2110 공유기 설치 | 최댓값 (B) |
 
 ### 투 포인터 (합이 S 이상인 최소 구간 길이)
 
@@ -2671,4 +2784,12 @@ return answer;
 
 - 디버깅용 `cout`은 제출 전에 지우기 (출력이 많으면 느려지고, 출력으로 채점하는 문제에서는 오답).
 - `max`를 쓰면 `#include <algorithm>`. 최댓값은 `*max_element(diffs.begin(), diffs.end())`로 한 줄.
+
+### Q33. 이분 탐색 정리
+
+→ 4장 [이분 탐색 총정리](#이분-탐색-총정리)에 정리. (STL `lower_bound` / `upper_bound`, 값 찾기, 매개변수 탐색 최솟값·최댓값 틀, 함정 체크리스트, 실수 범위, 대표 문제)
+
+- 핵심 한 줄: **"답을 정하면 가능한지 쉽게 판정할 수 있고, 답이 커질수록 결과가 한 방향으로만 바뀌면" 답을 이분 탐색**.
+- 최솟값 찾기: `if (check(mid)) hi = mid; else lo = mid + 1;` (mid 내림)
+- 최댓값 찾기: `if (check(mid)) lo = mid; else hi = mid - 1;` (**mid 올림**)
 {% endraw %}
