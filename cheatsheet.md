@@ -2787,3 +2787,14 @@ return answer;
 - 핵심 한 줄: **"답을 정하면 가능한지 쉽게 판정할 수 있고, 답이 커질수록 결과가 한 방향으로만 바뀌면" 답을 이분 탐색**.
 - 최솟값 찾기: `if (check(mid)) hi = mid; else lo = mid + 1;` (mid 내림)
 - 최댓값 찾기: `if (check(mid)) lo = mid; else hi = mid - 1;` (**mid 올림**)
+- `while (low <= high)` + 성공하면 `high = mid - 1`, 실패하면 `low = mid + 1` + **끝나면 `low`가 답**: 가장 널리 쓰이는 형태 중 하나 (Q32의 형태 A). 위 (A) `lo < hi` 형태와 결과가 같음.
+- **판정 중 일찍 멈추기**: 합계가 `limit`을 넘는 순간 `break` → 더 볼 필요가 없음. 계산량이 줄고, 합계가 쓸데없이 커지는 것도 막음.
+
+```cpp
+for (int i = 0; i < n; i++) {
+    total += ...;
+    if (total > limit) break;    // 이미 실패 확정
+}
+```
+
+- 단, 일찍 멈춰도 **합계 변수는 `long long`** 이어야 함 (한 번 더하는 값 자체가 `int`에 가까울 수 있음).
