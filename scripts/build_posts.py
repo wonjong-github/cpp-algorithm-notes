@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "cheatsheet.md"
 POSTS = ROOT / "_posts"
 DATES = ROOT / "scripts" / "dates.json"
+FULL_PAGE = ROOT / "cheatsheet-page.md"
 
 NOTE_SLUGS = {
     1: "basic-template",
@@ -169,7 +170,26 @@ def render(post, dates):
     ])
 
 
+def write_full_page():
+    """치트시트 전체를 한 페이지(/cheatsheet/)로 만든다. 상단 메뉴에 "전체 치트시트"로 표시됨."""
+    lines = SRC.read_text(encoding="utf-8").splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]                     # 맨 위 제목은 페이지 제목으로 대신함
+    FULL_PAGE.write_text("\n".join([
+        "---",
+        "layout: page",
+        "title: 전체 치트시트",
+        "permalink: /cheatsheet/",
+        "---",
+        "{% raw %}",
+        *lines,
+        "{% endraw %}",
+        "",
+    ]), encoding="utf-8")
+
+
 def main():
+    write_full_page()
     posts = parse()
     amap = build_anchor_map(posts)
     for p in posts:
