@@ -2597,3 +2597,72 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON) # 지원 안 하면 조용히 낮추지 말�
 ```
 
 - 터미널에서 직접 컴파일할 때: `g++ -std=c++20 a.cpp`
+
+### Q32. 매개변수 탐색(이분 탐색)에서 흔한 실수 3가지 (퍼즐 게임 챌린지)
+
+```cpp
+while (minlevel <= maxlevel) {
+    level = (minlevel + maxlevel) / 2;
+    int total = 0;                                   // ❌ 2
+    for (...) {
+        ...
+        int time_prev = diffs[i - 1];                // ❌ 1
+        total += (time_cur + time_prev) * not_count + time_cur;
+    }
+    if (total > limit) minlevel = level + 1;
+    else maxlevel = level - 1;
+}
+return level;                                        // ❌ 3
+```
+
+**❌ 1. 다른 배열을 읽음 (`diffs[i-1]` ↔ `times[i-1]`)**
+
+- 이름이 비슷한 배열이 여러 개면 자주 생기는 실수. 이것만으로 거의 모든 테스트가 틀림.
+- → 처음에 `int diff = diffs[i], time_cur = times[i], time_prev = times[i - 1];`처럼 **이름을 붙여 한 곳에서 꺼내기**.
+
+**❌ 2. 합계를 `int`로 계산 → 오버플로우**
+
+- 퍼즐 30만 개 × 수억 → 합이 10¹⁴ 이상. `int`(약 21억)를 넘어 음수가 되면 "제한 시간 안"으로 잘못 판정.
+- → `long long total = 0;`. 곱셈 결과가 21억을 넘을 수 있으면 `(long long)a * b`로 곱하기 전에 바꾸기 (5장 "정수 오버플로우").
+- 문제의 `limit`이 `long long`이면 **비교 대상(합계)도 `long long`** 이라는 신호.
+
+**❌ 3. 마지막에 계산한 `mid`를 답으로 반환**
+
+- 마지막으로 확인한 `mid`가 **실패한 값일 수도 있음**. `while (lo <= hi)` 형태에서는 반복이 끝나면 **`lo`가 "조건을 만족하는 최솟값"**.
+
+```cpp
+// 형태 A: lo <= hi (끝나면 lo가 답)
+int lo = 1, hi = maxDiff;
+while (lo <= hi) {
+    int mid = (lo + hi) / 2;
+    if (check(mid)) hi = mid - 1;   // 되면 더 작은 쪽도 확인
+    else lo = mid + 1;
+}
+return lo;
+
+// 형태 B: lo < hi (끝나면 lo == hi가 답, 4장 템플릿)
+int lo = 1, hi = maxDiff;
+while (lo < hi) {
+    int mid = (lo + hi) / 2;
+    if (check(mid)) hi = mid;       // mid도 답 후보라 남겨 둠
+    else lo = mid + 1;
+}
+return lo;
+
+// 형태 C: 답을 따로 기록 (가장 헷갈리지 않음)
+int answer = maxDiff;
+while (lo <= hi) {
+    int mid = (lo + hi) / 2;
+    if (check(mid)) { answer = mid; hi = mid - 1; }
+    else lo = mid + 1;
+}
+return answer;
+```
+
+- 한 형태를 정해서 **항상 같은 형태로** 쓰는 게 실수를 줄이는 방법.
+- 판정 부분은 `bool check(int level)` 또는 `long long totalTime(int level)` **함수로 분리**하면 반복문이 짧아져 실수가 줄어듦.
+
+**그 밖에**
+
+- 디버깅용 `cout`은 제출 전에 지우기 (출력이 많으면 느려지고, 출력으로 채점하는 문제에서는 오답).
+- `max`를 쓰면 `#include <algorithm>`. 최댓값은 `*max_element(diffs.begin(), diffs.end())`로 한 줄.
